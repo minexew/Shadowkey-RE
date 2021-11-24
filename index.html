@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HTML5 Test Page</title>
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" type="text/css">
+</head>
+<style>
+</style>
+<body>
+<div id="top" class="page" role="document">
+    <h1>Shadowkey-RE</h1>
+
+    <main role="main">
+        <h3>Unrecognized files</h3>
+        <ul>
+        {% for path in unrecognized_paths %}
+            <li><code>{{ path }}</code></li>
+        {% endfor %}
+        </ul>
+    </main>
+</div>
+</body>
+</html>
