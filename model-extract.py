@@ -20,7 +20,7 @@ parser.add_argument("file_offset", type=int)
 parser.add_argument("file_length", type=int)
 parser.add_argument("output", type=Path)        # can be .bin or .glb or .gif
 parser.add_argument("--image-size", type=int, default=500)
-parser.add_argument("--export-texture", type=Path)
+parser.add_argument("--save-texture", type=Path, default=[], action="append")   # can be .gif or .png
 parser.add_argument("--verbose", action="store_true")
 args = parser.parse_args()
 
@@ -99,10 +99,12 @@ with open(args.models_huge, "rb") as f:
 
         tex_frames.append(img)
 
-    if args.export_texture and len(tex_frames):
-        tex_frames[0].save(args.export_texture, format="GIF", append_images=tex_frames[1:],
-                           save_all=True, duration=1000, loop=0)
-        tex_frames[0].save(args.export_texture.with_suffix(".png"))  # btw save good quality
+    if len(tex_frames):
+        for path in args.save_texture:
+            if path.suffix.lower() == ".gif":
+                tex_frames[0].save(path, append_images=tex_frames[1:], save_all=True, duration=1000, loop=0)
+            else:
+                tex_frames[0].save(path)
 
     dprint("remaining", len(modelbytes[pos:]), "bytes; preview:", modelbytes[pos:pos + 16])
     # dprint(modelbytes[pos:])
@@ -131,63 +133,9 @@ with open(args.models_huge, "rb") as f:
 
 
 if args.output.suffix.lower() == ".gif":
-    import pyrender
-    from trimesh.transformations import rotation_matrix, concatenate_matrices
+    import render_me_harder
 
-    # fuze_trimesh: trimesh.Scene
-    # fuze_trimesh = trimesh.load('DUMPMESH9.glb')
-    # mesh = pyrender.Mesh.from_trimesh(fuze_trimesh)
-
-    # normalize size + swap axes (mesh is Z-up blender style, scene is Y-up)
-    s = 0.33 / mesh.scale
-    bound = mesh.bounding_box
-    # raise Exception(repr(bound.__dict__))
-    recenter = np.linalg.inv(bound.primitive.transform)
-    scale = np.array([
-        [s, 0, 0, 0],
-        [0, 0, s, 0],
-        [0, s, 0, 0],
-        [0, 0, 0, 1],
-    ])
-    # print(recenter)
-    mat = concatenate_matrices(scale, recenter)
-    # print(mat)
-    mesh.apply_transform(mat)
-    scene = pyrender.Scene()
-    scene.add(pyrender.Mesh.from_trimesh(mesh))
-    # scene.add(mesh)
-    # pyrender.Viewer(scene, use_raymond_lighting=True)
-    # scene = scene
-
-    imgs = []
-
-    r = pyrender.OffscreenRenderer(args.image_size, args.image_size)
-
-    for rot_z in np.linspace(0, np.pi * 2, IMAGE_FRAMES, endpoint=False):
-        camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
-        s = np.sqrt(2)/2
-        camera_pose = np.array([
-            [0.0, -s,   s,   0.3],
-            [1.0,  0.0, 0.0, 0.0],
-            [0.0,  s,   s,   0.35],
-            [0.0,  0.0, 0.0, 1.0],
-        ])
-        rot = rotation_matrix(rot_z, [0, 0, 1])
-        # print(rot)
-        camera_pose = concatenate_matrices(rot, camera_pose)
-        n1 = scene.add(camera, pose=camera_pose)
-        # TODO https://pyrender.readthedocs.io/en/latest/generated/pyrender.light.DirectionalLight.html#pyrender.light.DirectionalLight
-        light = pyrender.SpotLight(color=np.ones(3), intensity=3.0,
-                                   innerConeAngle=np.pi/16.0,
-                                   outerConeAngle=np.pi/6.0)
-        n2= scene.add(light, pose=camera_pose)
-
-        color, depth = r.render(scene, flags=pyrender.RenderFlags.SKIP_CULL_FACES)
-
-        scene.remove_node(n1)
-        scene.remove_node(n2)
-
-        imgs.append(Image.frombytes("RGB", color.shape[:2], color.copy()))
+    imgs = render_me_harder.render_frames(mesh, w=args.image_size, h=args.image_size, num_frames=IMAGE_FRAMES)
 
     # Save GIF image
     # https://stackoverflow.com/a/57751793
