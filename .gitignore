@@ -1,0 +1,5 @@
+*.glb
+*.rep
+build.ninja
+gallerymaker.json
+.ninja_log
